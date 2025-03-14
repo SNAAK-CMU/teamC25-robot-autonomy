@@ -4,8 +4,7 @@ import keyboard
 import time
 
 class WeighingScale():
-    def __init__(self):
-        port = '/dev/ttyUSB0'
+    def __init__(self, port='/dev/ttyUSB0'):
         self.serial_port = serial.Serial(port, 9600, timeout=1)
 
     def read_weight(self):
@@ -38,7 +37,7 @@ class WeighingScale():
         print("Press 'w' to get the weight...")
         while True:
             if keyboard.is_pressed('w'): 
-                weight = self.read_weight()
+                weight = self.weight_averaged()
                 if weight != -1:
                     print(f"Weight: {weight} grams")
                     return weight
