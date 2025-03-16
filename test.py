@@ -16,6 +16,7 @@ from frankapy.utils import min_jerk, min_jerk_weight
 
 if __name__ == '__main__':
     fa = FrankaArm()
+
     scale = WeighingScale()
     target_weight = scale.read_weight_on_key()
     print(f"Target weight: {target_weight} grams")
@@ -25,14 +26,23 @@ if __name__ == '__main__':
             break
     current_weight = 0
     prev_e = 0
+    e_total = 0
     dt = 0.01
-    Kp = 0.1
-    Kd = 0.001
+    Kp = 1.1        
+    Kd = 0.002   # 0.001
+    Ki = 0.7  #0.5
     duration = np.inf
     default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
 
     # Grasp bottle
     #TODO goto bottle pick pose
+
+    # move to x, y, and z directly above the bin
+    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world') # TODO get transform to bottle and define it as tool frame
+    pre_pour_pose.translation = [0.3261, 0.012, 0.3947] # [0.3261, 0.012, 0.3447]
+    pre_pour_pose.rotation = default_rotation
+    fa.goto_pose(pre_pour_pose)
+    print('Moved to pre-pour pose')
 
     # close gripper
     fa.open_gripper()
@@ -43,16 +53,9 @@ if __name__ == '__main__':
     print('Gripped bottle')
 
     # define publisher
-    rospy.loginfo('Initializing Sensor Publisher')
+    rospy.loginfo('Initializinge_total Sensor Publisher')
     pub = rospy.Publisher(FC.DEFAULT_SENSOR_PUBLISHER_TOPIC, SensorDataGroup, queue_size=1000)
     rate = rospy.Rate(1 / dt)
-
-    # move to x, y, and z directly above the bin
-    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world') # TODO get transform to bottle and define it as tool frame
-    pre_pour_pose.translation = [0.3261, 0.012, 0.3447]
-    pre_pour_pose.rotation = default_rotation
-    fa.goto_pose(pre_pour_pose)
-    print('Moved to pre-pour pose')
 
     fa.goto_pose(pre_pour_pose, duration=duration, dynamic=True, buffer_time=1)
     init_time = rospy.Time.now().to_time()
@@ -67,14 +70,18 @@ if __name__ == '__main__':
             current_weight = prev_weight
         else:
             prev_weight = current_weight
+
         print(f'Current weight: {current_weight} grams')
         e = target_weight - current_weight
+        e = e/target_weight
         e_dot = prev_e - e / dt # TODO improve accuracy of dt
+        e_total += e * dt
+        e_total = np.clip(e_total, 0.0, 1.0)
         print(f'Error: {e}, Error derivative: {e_dot}')
-        pitch = -(Kp * e + Kd * e_dot)
+        pitch = -(Kp * e + Kd * e_dot + Ki * e_total)
         # pitch = -np.pi/6
         print("Pitch pre clip: ", pitch)
-        # because of direction, to pour pitch needs to be negative
+        # because of direction, e_totalto pour pitch needs to be negative
         pitch = np.clip(pitch, -np.pi/3, 0)
         print(f'Pitch: {pitch}')
         rotation = default_rotation @ np.array([[np.cos(pitch), 0, np.sin(pitch)], [0, 1, 0], [-np.sin(pitch), 0, np.cos(pitch)]])
@@ -100,6 +107,13 @@ if __name__ == '__main__':
 
     
     print('Finished pouring')
+
+    # move to x, y, and z directly above the bin
+    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world') # TODO get transform to bottle and define it as tool frame
+    pre_pour_pose.translation = [0.3261, 0.012, 0.3947] # [0.3261, 0.012, 0.3447]
+    pre_pour_pose.rotation = default_rotation
+    fa.goto_pose(pre_pour_pose)
+    print('Moved to pre-pour pose')
 
     # Stop the skill
     # Alternatively can call fa.stop_skill()
