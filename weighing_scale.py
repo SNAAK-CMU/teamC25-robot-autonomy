@@ -11,6 +11,8 @@ class WeighingScale():
         '''
         Return weight value in grams
         '''
+        # clear buffer
+        self.serial_port.reset_input_buffer()
         serial_data = self.serial_port.readline().decode('utf-8').strip() # readline blocks by default
         if (serial_data != ''):
             try:
@@ -37,8 +39,11 @@ class WeighingScale():
         print("Press 'w' to get the weight...")
         while True:
             if keyboard.is_pressed('w'): 
-                weight = self.weight_averaged()
+                weight = self.read_weight()
                 if weight != -1:
-                    print(f"Weight: {weight} grams")
+                    print(f"\nWeight: {weight} grams")
                     return weight
-            time.sleep(0.1)
+
+if __name__ == '__main__':
+    scale = WeighingScale()
+    scale.read_weight_on_key()
