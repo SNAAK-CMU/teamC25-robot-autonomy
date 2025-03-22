@@ -2,19 +2,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-def softmin(x, y, k=10):
-    """ Smooth minimum function. """
-    return -1/k * np.log(np.exp(-k*x) + np.exp(-k*y))
+# def softmin(x, y, k=10):
+#     """ Smooth minimum function. """
+#     return -1/k * np.log(np.exp(-k*x) + np.exp(-k*y))
 
 def dynamics(params, x, u):
-    """ System dynamics function. """
-    A = 0.05
-    B = 100
+    """ System dynamics function. In CT """
 
-    u_smooth = softmin(u[0], 0, 50)  # Smooth min function
-    dt = 0.05
+
+    #u_smooth = softmin(u[0], 0, 50)  # Smooth min function
+
     #xdot = -u_smooth**2  # Compute xdot
-    xdot = (5382.2 * dt * u_smooth**3 + 2391.4*dt*u_smooth**2 + 435.57*dt*u_smooth - 12.463*dt)
+    if (u > 0):
+        xdot = 0
+    else:
+        xdot = -(5382.2 * u[0]**3 + 2391.4*u[0]**2 + 435.57*u[0] - 12.463) # if u > 0, this needs to be zero TODO 
     #xdot = (-756.9 * dt * u_smooth**2 - 4.3739*dt*u_smooth - 21.255*dt) # multiply by dt, these we got as g/s
     return np.array([xdot])
 
@@ -84,9 +86,9 @@ def inequality_constraint(Z, params):
     
     return c
 
-def solve_bead_pour(start_mass=100, end_mass=60, verbose=True):
+def solve_bead_pour(start_mass=0, end_mass=50, verbose=True): # TODO: Play with constraints and parameters to make this find solution
     nx, nu = 1, 1
-    dt, tf = 0.05, 10.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
+    dt, tf = 0.05, 3.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
     t_vec = np.arange(0, tf + dt, dt)
     N = len(t_vec)
 
@@ -128,7 +130,7 @@ def solve_bead_pour(start_mass=100, end_mass=60, verbose=True):
                         {"type": "ineq", "fun": lambda Z, params: c_u - inequality_constraint(Z, params), "args": (params,)}
                     ],
                     bounds=[(l, u) for l, u in zip(x_l, x_u)],
-                    options={"maxiter": 50, "ftol": 1e-3, "disp": verbose}) #1e-6
+                    options={"maxiter": 100, "ftol": 1e-3, "disp": verbose}) #1e-6
 
     print(result)
 
@@ -146,7 +148,7 @@ Um = np.array(U)
 plt.figure()
 plt.plot(t_vec, Xm, label="State")
 plt.xlabel("Time (s)")
-plt.ylabel("Weight (g)")
+plt.ylabel("Weight in cup (g)")
 plt.title("State Trajectory")
 plt.legend()
 plt.show()
