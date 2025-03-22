@@ -12,7 +12,10 @@ def dynamics(params, x, u):
     B = 100
 
     u_smooth = softmin(u[0], 0, 50)  # Smooth min function
-    xdot = A * x[0] * B * -u_smooth**2  # Compute xdot
+    dt = 0.05
+    #xdot = -u_smooth**2  # Compute xdot
+    xdot = (5382.2 * dt * u_smooth**3 + 2391.4*dt*u_smooth**2 + 435.57*dt*u_smooth - 12.463*dt)
+    #xdot = (-756.9 * dt * u_smooth**2 - 4.3739*dt*u_smooth - 21.255*dt) # multiply by dt, these we got as g/s
     return np.array([xdot])
 
 def hermite_simpson(params, x1, x2, u, dt):
@@ -67,7 +70,7 @@ def equality_constraint(Z, params):
         Z[idx["u"][-1]] - 0.25,
         dynamics_constraints(Z, params)
     ]
-    #print(equality_constraint)
+
     return np.concatenate(eq_con)
 
 def inequality_constraint(Z, params):
@@ -81,7 +84,7 @@ def inequality_constraint(Z, params):
     
     return c
 
-def solve_bead_pour(verbose=True):
+def solve_bead_pour(start_mass=100, end_mass=60, verbose=True):
     nx, nu = 1, 1
     dt, tf = 0.05, 10.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
     t_vec = np.arange(0, tf + dt, dt)
@@ -90,21 +93,21 @@ def solve_bead_pour(verbose=True):
     Q, R, Qf = np.array([[1]]), np.array([[1]]), np.array([[10]])
 
     idx = create_idx(nx, nu, N)
-    xic, xg = np.array([200]), np.array([60])
+    xic, xg = np.array([start_mass]), np.array([end_mass])
 
     params = {"Q": Q, "R": R, "Qf": Qf, "xic": xic, "xg": xg, "dt": dt, "N": N, "idx": idx}
 
     x_l, x_u = np.zeros(idx["nz"]), np.full(idx["nz"], np.inf)
     for i in range(N - 1):
-        x_l[idx["u"][i]] = -0.785
+        x_l[idx["u"][i]] = -0.4
         x_u[idx["u"][i]] = 0.25
 
-    c_l, c_u = np.full(N - 2, -0.01), np.full(N - 2, 0.01)
+    c_l, c_u = np.full(N - 2, -0.02), np.full(N - 2, 0.02)
 
     state_init = np.linspace(xic, xg, N)
     control_init = np.concatenate([
-        np.linspace(0.25, -0.785, (N - 1) // 2),
-        np.linspace(-0.785, 0.25, (N - 1) // 2)
+        np.linspace(0.25, -0.4, (N - 1) // 2),
+        np.linspace(-0.4, 0.25, (N - 1) // 2)
     ])
 
     z0 = np.ones(idx["nz"])
@@ -112,6 +115,9 @@ def solve_bead_pour(verbose=True):
         z0[idx["x"][i]] = state_init[i]
         z0[idx["u"][i]] = control_init[i]
     z0[idx["x"][-1]] = state_init[-1]
+    z0 += np.random.uniform(-0.005, 0.005, z0.shape)
+
+
 
     result = minimize(cost, z0, 
                     args=(params,), 
@@ -122,7 +128,7 @@ def solve_bead_pour(verbose=True):
                         {"type": "ineq", "fun": lambda Z, params: c_u - inequality_constraint(Z, params), "args": (params,)}
                     ],
                     bounds=[(l, u) for l, u in zip(x_l, x_u)],
-                    options={"maxiter": 50, "ftol": 1e-5, "disp": verbose}) #1e-6
+                    options={"maxiter": 50, "ftol": 1e-3, "disp": verbose}) #1e-6
 
     print(result)
 
