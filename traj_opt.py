@@ -86,9 +86,9 @@ def inequality_constraint(Z, params):
     
     return c
 
-def solve_bead_pour(start_mass=0, end_mass=50, verbose=True): # TODO: Play with constraints and parameters to make this find solution
+def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with constraints and parameters to make this find solution
     nx, nu = 1, 1
-    dt, tf = 0.05, 3.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
+    dt, tf = 0.05, 4.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
     t_vec = np.arange(0, tf + dt, dt)
     N = len(t_vec)
 
@@ -130,7 +130,7 @@ def solve_bead_pour(start_mass=0, end_mass=50, verbose=True): # TODO: Play with 
                         {"type": "ineq", "fun": lambda Z, params: c_u - inequality_constraint(Z, params), "args": (params,)}
                     ],
                     bounds=[(l, u) for l, u in zip(x_l, x_u)],
-                    options={"maxiter": 100, "ftol": 1e-3, "disp": verbose}) #1e-6
+                    options={"maxiter": 100, "ftol": 1e-4, "disp": verbose}) #1e-6
 
     print(result)
 
@@ -157,6 +157,7 @@ plt.figure()
 plt.plot(t_vec[:-1], Um, label="Control")
 plt.xlabel("Time (s)")
 plt.ylabel("Pitch (rad)")
+plt.ylim((-0.5, 0.3))
 plt.title("Controls")
 plt.legend()
 plt.show()
