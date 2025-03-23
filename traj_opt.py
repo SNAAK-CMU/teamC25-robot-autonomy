@@ -76,23 +76,23 @@ def equality_constraint(Z, params):
     return np.concatenate(eq_con)
 
 def inequality_constraint(Z, params):
-    idx, N = params["idx"], params["N"]
+    idx, N, dt = params["idx"], params["N"], params["dt"]
     c = np.zeros(N - 2)
     
     for i in range(N - 2):
         ui = Z[idx["u"][i + 1]][0]
         uim1 = Z[idx["u"][i]][0]
-        c[i] = ui - uim1
+        c[i] = (ui - uim1)/dt
     
     return c
 
 def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with constraints and parameters to make this find solution
     nx, nu = 1, 1
-    dt, tf = 0.05, 4.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
+    dt, tf = 0.01, 7.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
     t_vec = np.arange(0, tf + dt, dt)
     N = len(t_vec)
 
-    Q, R, Qf = np.array([[1]]), np.array([[1]]), np.array([[10]])
+    Q, R, Qf = np.array([[0.1]]), np.array([[1]]), np.array([[10]])
 
     idx = create_idx(nx, nu, N)
     xic, xg = np.array([start_mass]), np.array([end_mass])
@@ -104,7 +104,7 @@ def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with
         x_l[idx["u"][i]] = -0.4
         x_u[idx["u"][i]] = 0.25
 
-    c_l, c_u = np.full(N - 2, -0.02), np.full(N - 2, 0.02)
+    c_l, c_u = np.full(N - 2, -0.2), np.full(N - 2, 0.2)
 
     state_init = np.linspace(xic, xg, N)
     control_init = np.concatenate([
@@ -130,17 +130,18 @@ def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with
                         {"type": "ineq", "fun": lambda Z, params: c_u - inequality_constraint(Z, params), "args": (params,)}
                     ],
                     bounds=[(l, u) for l, u in zip(x_l, x_u)],
-                    options={"maxiter": 100, "ftol": 1e-4, "disp": verbose}) #1e-6
+                    options={"maxiter": 200, "ftol": 1e-2, "disp": verbose}) #1e-6
 
     print(result)
 
     Z = result.x
+    success = result.success
     X = [Z[idx["x"][i]] for i in range(N)]
     U = [Z[idx["u"][i]] for i in range(N - 1)]
 
-    return X, U, t_vec, params
+    return X, U, success, t_vec, params
 
-X, U, t_vec, _ = solve_bead_pour(verbose=True)
+X, U, sucess, t_vec, _ = solve_bead_pour(verbose=True)
 
 Xm = np.array(X)
 Um = np.array(U)
