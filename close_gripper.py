@@ -6,7 +6,7 @@ import numpy as np
 
 fa = FrankaArm()
 
-# fa.goto_gripper(0.002, grasp=True, force=25)
+fa.goto_gripper(0.002, grasp=True, force=25)
 
 # default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
 # initial_pitch = 0.25 #0.25
@@ -20,7 +20,7 @@ fa = FrankaArm()
 # # pre_pour_pose.translation = [0.3261, 0.012, 0.3947] # [0.3261, 0.012, 0.3447]
 # pre_pour_pose.translation = [0.45, 0.012, 0.350] # [0.3261, 0.012, 0.3447]
 # pre_pour_pose.rotation = default_rotation
-fa.reset_joints()
+# fa.reset_joints()
 
 
 fa.open_gripper()
