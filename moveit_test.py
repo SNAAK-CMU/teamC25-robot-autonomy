@@ -15,22 +15,50 @@ from autolab_core import RigidTransform
 # Create a MoveItPlanner object and start the MoveIt node
 franka_moveit = MoveItPlanner()
 
-# Create a MoveGroupCommander for the "panda_arm" group
-moveitcommander = moveit_commander.MoveGroupCommander("panda_arm")
+# # Create a MoveGroupCommander for the "panda_arm" group
+# moveitcommander = moveit_commander.MoveGroupCommander("panda_arm")
 
-# Create a PlanningSceneInterface object directly
-scene = moveit_commander.PlanningSceneInterface()
+# # Create a PlanningSceneInterface object directly
+# scene = moveit_commander.PlanningSceneInterface()
 
-# Define the box pose
-box_pose = geometry_msgs.msg.PoseStamped()
-box_pose.header.frame_id = "panda_link0"  # or the robot's base frame
-box_pose.pose.position.x = 0.53
-box_pose.pose.position.y = 0.0
-box_pose.pose.position.z = 0.0
+# Define the weighing scale
+weighing_scale = geometry_msgs.msg.PoseStamped()
+weighing_scale.header.frame_id = "panda_link0"  # or the robot's base frame
+weighing_scale.pose.position.x = 0.53
+weighing_scale.pose.position.y = 0.10
+weighing_scale.pose.position.z = 0.0
+
+# Define the walls
+left_wall = geometry_msgs.msg.PoseStamped()
+left_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+left_wall.pose.position.x = 0.15
+left_wall.pose.position.y = 0.42
+left_wall.pose.position.z = 0.5
+
+right_wall = geometry_msgs.msg.PoseStamped()
+right_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+right_wall.pose.position.x = 0.15
+right_wall.pose.position.y = -0.42
+right_wall.pose.position.z = 0.5
+
+back_wall = geometry_msgs.msg.PoseStamped()
+back_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+back_wall.pose.position.x = -0.41
+back_wall.pose.position.y = 0.0
+back_wall.pose.position.z = 0.5
+
+bottom_wall = geometry_msgs.msg.PoseStamped()
+bottom_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+bottom_wall.pose.position.x = 0.2
+bottom_wall.pose.position.y = 0.0
+bottom_wall.pose.position.z = -0.05
 
 # Add the box to the planning scene
-box_name = "my_box"
-scene.add_box(box_name, box_pose, size=(0.57, 0.4, 0.15))  # dimensions: x, y, z
+franka_moveit.add_box("weighing_scale", weighing_scale, size=(0.57, 0.4, 0.15))  # dimensions: x, y, z
+franka_moveit.add_box("left_wall", left_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
+franka_moveit.add_box("right_wall", right_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
+franka_moveit.add_box("back_wall", back_wall, size=(0.01, 1, 1.1))  # dimensions: x, y, z
+franka_moveit.add_box("bottom_wall", bottom_wall, size=(1.2, 1, 0.01))  # dimensions: x, y, z
 
 # Wait for the scene to update
 time.sleep(2)
@@ -84,7 +112,7 @@ else:
     # set the pose goal based on the position read from the yaml file
     pose_goal = Pose()
     pose_goal.position.x = data["position"]["x"]
-    pose_goal.position.y = data["position"]["y"]
+    pose_goal.position.y = data["position"]["y"] + 0.05
     pose_goal.position.z = data["position"]["z"]
     pose_goal.orientation.x = data["orientation"]["x"]
     pose_goal.orientation.y = data["orientation"]["y"]
@@ -106,6 +134,10 @@ else:
 
     franka_moveit.fa.wait_for_skill()
 
+    # wait for key press
+    print('Press any key to move to grasp position')
+    input()
+    
 
     #######################################################
     #                  Grasp Position
@@ -118,8 +150,8 @@ else:
     # set the pose goal based on the position read from the yaml file
     pose_goal = Pose()
     pose_goal.position.x = data["position"]["x"]
-    pose_goal.position.y = data["position"]["y"]
-    pose_goal.position.z = data["position"]["z"]
+    pose_goal.position.y = data["position"]["y"] + 0.07
+    pose_goal.position.z = data["position"]["z"] - 0.02
     pose_goal.orientation.x = data["orientation"]["x"]
     pose_goal.orientation.y = data["orientation"]["y"]
     pose_goal.orientation.z = data["orientation"]["z"]
@@ -142,6 +174,10 @@ else:
 
     franka_moveit.fa.wait_for_skill()
 
+    # wait for key press
+    print('Press any key to move to pre pour position')
+    input()
+    
 
     #######################################################
     #             Pre Pour Position
@@ -153,7 +189,7 @@ else:
     # set the pose goal based on the position read from the yaml file
     pose_goal = Pose()
     pose_goal.position.x = data["position"]["x"]
-    pose_goal.position.y = data["position"]["y"]
+    pose_goal.position.y = data["position"]["y"] - 0.07
     pose_goal.position.z = data["position"]["z"]
     pose_goal.orientation.x = data["orientation"]["x"]
     pose_goal.orientation.y = data["orientation"]["y"]
