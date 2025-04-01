@@ -44,10 +44,6 @@ if __name__ == '__main__':
         if keyboard.is_pressed('p'):
             break
     
-    current_weight = scale.read_weight()
-
-    prev_e = target_weight - current_weight
-
     # Parameters for PID controller
     e_total = 0
     dt = 0.05
@@ -87,6 +83,10 @@ if __name__ == '__main__':
     rospy.loginfo('Initializinge_total Sensor Publisher')
     pub = rospy.Publisher(FC.DEFAULT_SENSOR_PUBLISHER_TOPIC, SensorDataGroup, queue_size=1000)
     rate = rospy.Rate(1 / dt)
+
+    current_weight = scale.read_weight()
+
+    prev_e = target_weight - current_weight
 
     print('Generating trajectory...')
     X, U, sucess, t_vec, dt, params = solve_bead_pour(start_mass=current_weight, end_mass=target_weight, verbose=True)
