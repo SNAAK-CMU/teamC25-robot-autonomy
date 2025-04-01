@@ -125,7 +125,7 @@ else:
     pose_goal = franka_moveit.get_moveit_pose_given_frankapy_pose(pose_goal)
 
     # plan a straight line motion to the goal
-    joints = franka_moveit.get_straight_plan_given_pose(pose_goal)
+    joints = franka_moveit.get_plan_given_pose(pose_goal)
     print(joints)
     # print(plan)
 
@@ -163,7 +163,7 @@ else:
     pose_goal = franka_moveit.get_moveit_pose_given_frankapy_pose(pose_goal)
 
     # plan a straight line motion to the goal
-    joints = franka_moveit.get_straight_plan_given_pose(pose_goal)
+    joints = franka_moveit.get_plan_given_pose(pose_goal)
     print(joints)
     # print(plan)
 
@@ -202,7 +202,7 @@ else:
     pose_goal = franka_moveit.get_moveit_pose_given_frankapy_pose(pose_goal)
 
     # plan a straight line motion to the goal
-    joints = franka_moveit.get_straight_plan_given_pose(pose_goal)
+    joints = franka_moveit.get_plan_given_pose(pose_goal)
     print(joints)
     # print(plan)
 
