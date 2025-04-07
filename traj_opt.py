@@ -139,7 +139,7 @@ def solve_bead_pour(start_mass=40, end_mass=90, verbose=True): # TODO: Play with
     X = [Z[idx["x"][i]] for i in range(N)]
     U = [Z[idx["u"][i]] for i in range(N - 1)]
 
-    return X, U, success, t_vec, dt, params
+    return X, U, success, t_vec, dt
 if __name__ == "__main__":
     X, U, sucess, t_vec, dt, params = solve_bead_pour(verbose=True)
 
