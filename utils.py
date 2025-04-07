@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import rospy
-import matplotlib.pyplot as plt
+# import rospy
+# import matplotlib.pyplot as plt
 
-from autolab_core import RigidTransform
-from frankapy import SensorDataMessageType
-from frankapy import FrankaConstants as FC
-from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
+# from autolab_core import RigidTransform
+# from frankapy import SensorDataMessageType
+# from frankapy import FrankaConstants as FC
+# from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
 
-from frankapy.proto import PosePositionSensorMessage, ShouldTerminateSensorMessage
-from franka_interface_msgs.msg import SensorDataGroup
+# from frankapy.proto import PosePositionSensorMessage, ShouldTerminateSensorMessage
+# from franka_interface_msgs.msg import SensorDataGroup
+import cv2
+import os
 
 
 
@@ -136,3 +138,47 @@ def get_weights(scale):
     print("Place cup/bowl to catch beads on scale...")
     current_weight = scale.read_weight_on_key()
     return target_weight, current_weight
+
+def get_pickup_pixels(img, verbose=False):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    lower_red1 = np.array([0, 120, 70])
+    upper_red1 = np.array([10, 255, 255])
+    
+    lower_red2 = np.array([170, 120, 70])
+    upper_red2 = np.array([180, 255, 255])
+    
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask = cv2.bitwise_or(mask1, mask2)
+    if mask.shape[0] > 500:
+        mask[500:, :] = 0      
+    _, thresholded = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_area = 1000
+    max_area = 8000
+    tape_contour = None
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        
+        if min_area < area < max_area:
+            tape_contour = contour
+            break
+
+    if tape_contour is None: raise Exception("Cup not found")
+    M = cv2.moments(tape_contour)
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+    cv2.circle(img, (cX, cY), 7, (255, 255, 0), -1)
+    cv2.drawContours(img, [tape_contour], -1, (255, 0, 255), 2)          
+    if verbose:
+        cv2.imshow("img", img)
+        cv2.waitKey(0)
+    return cX, cY
+if __name__ == "__main__":
+    folder_path = "test_images"
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+        if os.path.isfile(file_path):
+            img = cv2.imread(file_path)
+            print(get_pickup_pixels(img, verbose=True))
