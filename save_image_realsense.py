@@ -12,22 +12,22 @@ import time
 
 
 # Callback function for the realsense camera
+if __name__ == "__main__":
+    def callback(data):
+        bridge = CvBridge()
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+        cv2.imshow("Image window", cv_image)
 
-def callback(data):
-    bridge = CvBridge()
-    cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
-    cv2.imshow("Image window", cv_image)
+        # save the image to a file upon key press
+        if cv2.waitKey(1) & 0xFF == ord('s'):
+            cv2.imwrite(f"image_{time.time()}.jpg", cv_image)
+            print("Image saved!")
 
-    # save the image to a file upon key press
-    if cv2.waitKey(1) & 0xFF == ord('s'):
-        cv2.imwrite("image.jpg", cv_image)
-        print("Image saved!")
+    # Initialize the node
+    rospy.init_node('save_image_realsense', anonymous=True)
 
-# Initialize the node
-rospy.init_node('save_image_realsense', anonymous=True)
+    # Subscribe to the realsense camera
+    rospy.Subscriber("/camera/color/image_raw", Image, callback)
 
-# Subscribe to the realsense camera
-rospy.Subscriber("/camera/color/image_raw", Image, callback)
-
-# Keep the node running
-rospy.spin()
+    # Keep the node running
+    rospy.spin()
