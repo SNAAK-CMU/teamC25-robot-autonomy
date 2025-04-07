@@ -86,7 +86,7 @@ def inequality_constraint(Z, params):
     
     return c
 
-def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with constraints and parameters to make this find solution
+def solve_bead_pour(start_mass=40, end_mass=90, verbose=True): # TODO: Play with constraints and parameters to make this find solution
     nx, nu = 1, 1
     dt, tf = 0.05, 7.0 # Generate trajectory at 20 Hz, use controller at 100 Hz to track
     t_vec = np.arange(0, tf + dt, dt)
@@ -139,26 +139,30 @@ def solve_bead_pour(start_mass=0, end_mass=100, verbose=True): # TODO: Play with
     X = [Z[idx["x"][i]] for i in range(N)]
     U = [Z[idx["u"][i]] for i in range(N - 1)]
 
-    return X, U, success, t_vec, dt, params
+    return X, U, success, t_vec, dt
 if __name__ == "__main__":
-    X, U, sucess, t_vec, dt = solve_bead_pour(verbose=True)
+    X, U, sucess, t_vec, dt, params = solve_bead_pour(verbose=True)
 
     Xm = np.array(X)
     Um = np.array(U)
 
-    plt.figure()
-    plt.plot(t_vec, Xm, label="State")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Weight in cup (g)")
-    plt.title("State Trajectory")
-    plt.legend()
-    plt.show()
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
-    plt.figure()
-    plt.plot(t_vec[:-1], Um, label="Control")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Pitch (rad)")
-    plt.ylim((-0.5, 0.3))
-    plt.title("Controls")
-    plt.legend()
+    # Plot for the first subplot (State)
+    ax[0].plot(t_vec, Xm, label="State")
+    ax[0].set_xlabel("Time (s)")
+    ax[0].set_ylabel("Weight in cup (g)")
+    ax[0].set_title("State Trajectory")
+    ax[0].legend()
+
+    # Plot for the second subplot (Control)
+    ax[1].plot(t_vec[:-1], Um, label="Control")
+    ax[1].set_xlabel("Time (s)")
+    ax[1].set_ylabel("Pitch (rad)")
+    ax[1].set_ylim((-0.5, 0.3))
+    ax[1].set_title("Controls")
+    ax[1].legend()
+
+    # Display the plot
+    plt.tight_layout()
     plt.show()
