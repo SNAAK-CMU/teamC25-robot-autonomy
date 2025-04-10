@@ -46,13 +46,17 @@ def get_transform():
 
     rospy.sleep(1)
     try:
-        transform = tf_buffer.lookup_transform('panda_link0', 'camera_link', rospy.Time(0))
+        transform = tf_buffer.lookup_transform('panda_link0', 'panda_end_effector', rospy.Time(0))
 
-        T = utils.transform_to_matrix(transform)
+        T_link0_ee = utils.transform_to_matrix(transform)
+        T_ee_camera = np.eye(4)
+        R = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+        T_ee_camera[:3, :3] = R
+        T_ee_camera[:3, 3] = np.array([-0.04, 0, -0.085])
         camera_info = rospy.wait_for_message("/camera/color/camera_info", CameraInfo)
         K = camera_info.K 
         K_matrix = np.array(K).reshape((3, 3))
-        print(K_matrix)
+        T = T_link0_ee @ T_ee_camera
         return T, K_matrix
 
     except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
@@ -64,30 +68,26 @@ def add_marker(x, y, z):
     marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
     
     marker = Marker()
-    marker.header.frame_id = "panda_link0"  # Set the frame_id (in which coordinate frame the marker will be published)
+    marker.header.frame_id = "panda_link0"
     marker.header.stamp = rospy.Time.now()
 
     marker.ns = "xyz_marker"
-    marker.id = 0  # Unique ID for the marker
-    marker.type = Marker.SPHERE  # Marker type: SPHERE to represent a point
+    marker.id = 0
+    marker.type = Marker.SPHERE 
     marker.action = Marker.ADD
 
-    # Set the position of the marker
     marker.pose.position = Point(x, y, z)
-    marker.pose.orientation.w = 1.0  # No rotation
+    marker.pose.orientation.w = 1.0 
 
-    # Set the scale (size of the sphere)
-    marker.scale.x = 0.05  # Radius of the sphere
+    marker.scale.x = 0.05
     marker.scale.y = 0.05
     marker.scale.z = 0.05
 
-    # Set the color of the marker (RGB format, alpha = 1.0 for full opacity)
     marker.color.r = 1.0
     marker.color.g = 0.0
     marker.color.b = 0.0
     marker.color.a = 1.0
-    rate = rospy.Rate(1)  # 1 Hz, adjust as needed
-    # Publish the marker
+    rate = rospy.Rate(1)
     while not rospy.is_shutdown():
         marker.header.stamp = rospy.Time.now()
         marker_pub.publish(marker)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     
     # Call the function to get the required transform
     T, K = get_transform()
-
+    #print(T@np.array([0, 0, 0.4826, 1]))
     # Get image data
     rgb, depth = get_image()
 

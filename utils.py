@@ -192,8 +192,8 @@ def transform_to_matrix(transform):
     
     return T_matrix
 
-def get_pickup_location(rgb_img, depth_img, T, K):
-    pixelX, pixelY = get_pickup_pixels(rgb_img, verbose=False)
+def get_pickup_location(rgb_img, depth_img, T, K, verbose=False):
+    pixelX, pixelY = get_pickup_pixels(rgb_img, verbose=verbose)
     pixel = np.array([pixelX, pixelY, 1.0])
     depth = depth_img[pixelY, pixelX]
     depth = depth / 1000.0
@@ -201,13 +201,15 @@ def get_pickup_location(rgb_img, depth_img, T, K):
         raise Exception("Depth is 0")
     
     cam_coords = depth * np.linalg.inv(K) @ pixel
-    print(f"Depth: {depth}")
-    print(T)
-    print(f'camera_coord:{cam_coords}')
+    if verbose:
+        print(f"Depth: {depth}")
+        print(T)
+        print(f'camera_coord:{cam_coords}')
     X, Y, Z, W = T @ np.concatenate((cam_coords, [1]))
     X = X / W
     Y = Y / W
     Z = Z / W
+    X += 0.042 # Assume looking head on, since we detect front of cup, pick up point is at center
     return X, Y, Z
 
 
