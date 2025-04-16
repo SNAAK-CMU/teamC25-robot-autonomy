@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+import sys
+sys.path.append("/home/ros_ws")
+from src.devel_packages.manipulation.src.moveit_class import MoveItPlanner
 import rospy
 import tf2_ros
 import tf2_geometry_msgs  # This is used to handle tf2 transformations
@@ -15,22 +17,42 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import CameraInfo
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
+from autolab_core import RigidTransform
 
 def main():
+    franka_moveit = MoveItPlanner()
     fa = FrankaArm(init_node=False)
+
+    gripper_frame = RigidTransform(from_frame='franka_tool', to_frame='franka_tool_base') # TODO get transform to bottle and define it as tool frame
+    gripper_frame.translation = [0, 0, 0.0762] # [0.3261, 0.012, 0.3447]
+    gripper_frame.rotation = np.eye(3)
+    fa.set_tool_delta_pose(gripper_frame)
     scale = WeighingScale()
 
-    target_weight, current_weight = utils.get_weights(scale)
-    X, U, success, t_vec, dt = solve_bead_pour(start_mass=current_weight, end_mass=target_weight, verbose=True)
+    # TODO: uncomment as we go along
+    # translation = fa.get_pose().translation
+    # translation += np.array([0.2, 0, 0.2])
+    # utils.pickup(fa, translation[0], translation[1], translation[2])
+    # target_weight, current_weight = utils.get_weights(scale)
+    # X, U, success, t_vec, dt = solve_bead_pour(start_mass=current_weight, end_mass=target_weight, verbose=True)
 
-    if not success: 
-        raise Exception("No Feasible trajectory found")
+    # if not success: 
+    #     raise Exception("No Feasible trajectory found")
 
-    # TODO: pickup cup and bring to pre-pour position
-    utils.pour_beads(fa, Xm=X, Um=U, t_vec=t_vec, scale=scale, at_pre_pour=False, dt=dt, verbose=False)
+    # # TODO: cup needs to be elevated to begin with to properly pick up
+    utils.add_collision_boxes(franka_moveit)
+    utils.move_to_pre_pickup_location(franka_moveit)
 
-    final_weight = scale.weight_averaged()
-    print(f"Error = {target_weight - final_weight} g")
+    T, K = get_transform()
+    rgb, depth = get_image()
+    X, Y, Z = utils.get_pickup_location(rgb, depth, T, K, verbose=True)
+    print(f"X: {X}, Y: {Y}, Z: {Z}")
+    input("Press Enter to continue...")
+    utils.pickup(fa, X, Y, Z)
+    # utils.pour_beads(fa, Xm=X, Um=U, t_vec=t_vec, scale=scale, at_pre_pour=False, dt=dt, verbose=False)
+
+    # final_weight = scale.weight_averaged()
+    # print(f"Error = {target_weight - final_weight} g")
 
 def get_image():
     image_data = rospy.wait_for_message("/camera/color/image_raw", Image)
@@ -94,20 +116,21 @@ def add_marker(x, y, z):
         rate.sleep()
 
 if __name__ == "__main__":
-    rospy.init_node('pour_beads', anonymous=True)
+    #rospy.init_node('pour_beads', anonymous=True)
     
+    main()
     # Call the function to get the required transform
-    T, K = get_transform()
-    #print(T@np.array([0, 0, 0.4826, 1]))
-    # Get image data
-    rgb, depth = get_image()
+    # T, K = get_transform()
+    # #print(T@np.array([0, 0, 0.4826, 1]))
+    # # Get image data
+    # rgb, depth = get_image()
 
-    # Get the pickup location
-    X, Y, Z = utils.get_pickup_location(rgb, depth, T, K)
-    print(f"X: {X}, Y: {Y}, Z: {Z}")
+    # # Get the pickup location
+    # X, Y, Z = utils.get_pickup_location(rgb, depth, T, K)
+    # print(f"X: {X}, Y: {Y}, Z: {Z}")
 
-    # Add marker to RViz at the calculated location
-    add_marker(X, Y, Z)
+    # # Add marker to RViz at the calculated location
+    # add_marker(X, Y, Z)
 
     # Run the main task (pouring beads)
     # main()

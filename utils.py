@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 
 import numpy as np
-# import rospy
-# import matplotlib.pyplot as plt
+import rospy
+import matplotlib.pyplot as plt
 
-# from autolab_core import RigidTransform
-# from frankapy import SensorDataMessageType
-# from frankapy import FrankaConstants as FC
-# from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
+from autolab_core import RigidTransform
+from frankapy import SensorDataMessageType
+from frankapy import FrankaConstants as FC
+from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
 
-# from frankapy.proto import PosePositionSensorMessage, ShouldTerminateSensorMessage
-# from franka_interface_msgs.msg import SensorDataGroup
+from frankapy.proto import PosePositionSensorMessage, ShouldTerminateSensorMessage
+from franka_interface_msgs.msg import SensorDataGroup
 import cv2
 import os
+import yaml
 import tf.transformations as tft
-
+import geometry_msgs.msg
+from src.devel_packages.manipulation.src.moveit_class import MoveItPlanner
+from autolab_core import RigidTransform
 
 
 def limit_angle_update(original_angle, new_angle, max_angle_change=0.01):
@@ -141,6 +144,23 @@ def get_weights(scale):
     return target_weight, current_weight
 
 def get_pickup_pixels(img, verbose=False):
+    # --- Mask everything except the ROI ---
+    mask = np.zeros(img.shape[:2], dtype=np.uint8)  # Black mask same size as image
+
+    # 🔧 Define your rectangle here (x1, y1, x2, y2)
+    x1, y1 = 350, 90  # Top-left corner
+    x2, y2 = 700, 340  # Bottom-right corner
+
+    # Fill the ROI with white (allowed area)
+    mask[y1:y2, x1:x2] = 255
+
+    # Apply the mask to the image
+    img = cv2.bitwise_and(img, img, mask=mask)
+    if verbose:
+        cv2.imshow("Masked Image", img)
+        cv2.waitKey(0)
+
+    # --- Preprocess the masked image ---
     img = cv2.GaussianBlur(img, (5, 5), 0)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
@@ -153,13 +173,17 @@ def get_pickup_pixels(img, verbose=False):
     mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
     mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
     mask = cv2.bitwise_or(mask1, mask2)
+    
     if verbose:
-        cv2.imshow("mask", mask)
+        cv2.imshow("Red Mask (ROI Applied)", mask)
         cv2.waitKey(0)
+
     if mask.shape[0] > 500:
-        mask[500:, :] = 0      
+        mask[500:, :] = 0
+
     _, thresholded = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
     min_area = 1000
     max_area = 9000
     tape_contour = None
@@ -169,16 +193,22 @@ def get_pickup_pixels(img, verbose=False):
             tape_contour = contour
             break
 
-    if tape_contour is None: raise Exception("Cup not found")
+    if tape_contour is None:
+        raise Exception("Cup not found")
+
     M = cv2.moments(tape_contour)
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
+    
     cv2.circle(img, (cX, cY), 7, (255, 255, 0), -1)
-    cv2.drawContours(img, [tape_contour], -1, (255, 0, 255), 2)          
+    cv2.drawContours(img, [tape_contour], -1, (255, 0, 255), 2)
+
     if verbose:
-        cv2.imshow("img", img)
+        cv2.imshow("Final Detection", img)
         cv2.waitKey(0)
+
     return cX, cY
+
 
 def transform_to_matrix(transform):
     translation = transform.transform.translation
@@ -212,6 +242,101 @@ def get_pickup_location(rgb_img, depth_img, T, K, verbose=False):
     X += 0.042 # Assume looking head on, since we detect front of cup, pick up point is at center
     return X, Y, Z
 
+def add_collision_boxes(franka_moveit):
+    weighing_scale = geometry_msgs.msg.PoseStamped()
+    weighing_scale.header.frame_id = "panda_link0"  # or the robot's base frame
+    weighing_scale.pose.position.x = 0.53
+    weighing_scale.pose.position.y = 0.0
+    weighing_scale.pose.position.z = 0.15/2
+
+
+    pickup_area = geometry_msgs.msg.PoseStamped()
+    pickup_area.header.frame_id = "panda_link0"  # or the robot's base frame
+    pickup_area.pose.position.x = 0.7
+    pickup_area.pose.position.y = -0.3
+    pickup_area.pose.position.z = 0.2
+
+    # Define the walls
+    left_wall = geometry_msgs.msg.PoseStamped()
+    left_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+    left_wall.pose.position.x = 0.15
+    left_wall.pose.position.y = 0.42
+    left_wall.pose.position.z = 0.6
+
+    right_wall = geometry_msgs.msg.PoseStamped()
+    right_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+    right_wall.pose.position.x = 0.15
+    right_wall.pose.position.y = -0.42
+    right_wall.pose.position.z = 0.6
+
+    back_wall = geometry_msgs.msg.PoseStamped()
+    back_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+    back_wall.pose.position.x = -0.41
+    back_wall.pose.position.y = 0.0
+    back_wall.pose.position.z = 0.5
+
+    bottom_wall = geometry_msgs.msg.PoseStamped()
+    bottom_wall.header.frame_id = "panda_link0"  # or the robot's base frame
+    bottom_wall.pose.position.x = 0.2
+    bottom_wall.pose.position.y = 0.0
+    bottom_wall.pose.position.z = 0.005
+
+    # Add the box to the planning scene
+    franka_moveit.add_box("weighing_scale", weighing_scale, size=(0.57, 0.4, 0.15))  # dimensions: x, y, z
+    franka_moveit.add_box("pickup_area", pickup_area, size=(0.3, 0.2, 0.4))  # dimensions: x, y, z
+
+    franka_moveit.add_box("left_wall", left_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
+    franka_moveit.add_box("right_wall", right_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
+    franka_moveit.add_box("back_wall", back_wall, size=(0.01, 1, 1.1))  # dimensions: x, y, z
+    franka_moveit.add_box("bottom_wall", bottom_wall, size=(1.2, 1, 0.01)) 
+
+def move_to_pre_pickup_location(franka_moveit):
+    with open("cup_detection_position.yaml", "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+        # print(data)
+    f.close()
+    # set the pose goal based on the position read from the yaml file
+    pose_goal = geometry_msgs.msg.Pose()
+    pose_goal.position.x = data["position"]["x"]
+    pose_goal.position.y = data["position"]["y"] + 0.05
+    pose_goal.position.z = data["position"]["z"]
+    pose_goal.orientation.x = data["orientation"]["x"]
+    pose_goal.orientation.y = data["orientation"]["y"]
+    pose_goal.orientation.z = data["orientation"]["z"]
+    pose_goal.orientation.w = data["orientation"]["w"]
+
+    print("pose_goal: ", pose_goal)
+
+    # Convert pose goal to the panda_hand frame (the frame that MoveIt uses)
+    pose_goal = franka_moveit.get_moveit_pose_given_frankapy_pose(pose_goal)
+
+    # plan a straight line motion to the goal
+    joints = franka_moveit.get_straight_plan_given_pose(pose_goal)
+    print(joints)
+    # print(plan)
+
+    # # execute the plan (uncomment after verifying plan on rviz)
+    franka_moveit.execute_plan(joints)
+
+    franka_moveit.fa.wait_for_skill()
+
+def pickup(fa, X, Y, Z):
+    default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+    initial_pitch = np.pi / 2
+    additional_rotation = np.array([[np.cos(initial_pitch), 0, np.sin(initial_pitch)], [0, 1, 0], [-np.sin(initial_pitch), 0, np.cos(initial_pitch)]])
+
+    # move to the pre-pickup pose
+    pickup_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
+    pickup_pose.translation = [X - 0.1, Y, Z]
+    pickup_pose.rotation = default_rotation@additional_rotation
+    fa.goto_pose(pickup_pose, duration=6)
+
+    # move to pickup
+    pickup_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
+    pickup_pose.translation = [X, Y, Z]
+    pickup_pose.rotation = default_rotation@additional_rotation
+    fa.goto_pose(pickup_pose, duration=6)
+    print('Moved to pickup pose')
 
 if __name__ == "__main__":
     rotation = np.array([0.01804096127439402, -0.006587662398836236, -0.6969376828282071, 0.7168744608887])

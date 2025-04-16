@@ -25,21 +25,28 @@ franka_moveit = MoveItPlanner()
 weighing_scale = geometry_msgs.msg.PoseStamped()
 weighing_scale.header.frame_id = "panda_link0"  # or the robot's base frame
 weighing_scale.pose.position.x = 0.53
-weighing_scale.pose.position.y = 0.10
-weighing_scale.pose.position.z = 0.0
+weighing_scale.pose.position.y = 0.0
+weighing_scale.pose.position.z = 0.15/2
+
+
+pickup_area = geometry_msgs.msg.PoseStamped()
+pickup_area.header.frame_id = "panda_link0"  # or the robot's base frame
+pickup_area.pose.position.x = 0.7
+pickup_area.pose.position.y = -0.3
+pickup_area.pose.position.z = 0.1
 
 # Define the walls
 left_wall = geometry_msgs.msg.PoseStamped()
 left_wall.header.frame_id = "panda_link0"  # or the robot's base frame
 left_wall.pose.position.x = 0.15
 left_wall.pose.position.y = 0.42
-left_wall.pose.position.z = 0.5
+left_wall.pose.position.z = 0.6
 
 right_wall = geometry_msgs.msg.PoseStamped()
 right_wall.header.frame_id = "panda_link0"  # or the robot's base frame
 right_wall.pose.position.x = 0.15
 right_wall.pose.position.y = -0.42
-right_wall.pose.position.z = 0.5
+right_wall.pose.position.z = 0.6
 
 back_wall = geometry_msgs.msg.PoseStamped()
 back_wall.header.frame_id = "panda_link0"  # or the robot's base frame
@@ -51,14 +58,16 @@ bottom_wall = geometry_msgs.msg.PoseStamped()
 bottom_wall.header.frame_id = "panda_link0"  # or the robot's base frame
 bottom_wall.pose.position.x = 0.2
 bottom_wall.pose.position.y = 0.0
-bottom_wall.pose.position.z = -0.05
+bottom_wall.pose.position.z = 0.005
 
 # Add the box to the planning scene
-#franka_moveit.add_box("weighing_scale", weighing_scale, size=(0.57, 0.4, 0.15))  # dimensions: x, y, z
-# franka_moveit.add_box("left_wall", left_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
+franka_moveit.add_box("weighing_scale", weighing_scale, size=(0.57, 0.4, 0.15))  # dimensions: x, y, z
+franka_moveit.add_box("pickup_area", pickup_area, size=(0.3, 0.2, 0.2))  # dimensions: x, y, z
+
+franka_moveit.add_box("left_wall", left_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
 franka_moveit.add_box("right_wall", right_wall, size=(1.2, 0.01, 1.1))  # dimensions: x, y, z
-# franka_moveit.add_box("back_wall", back_wall, size=(0.01, 1, 1.1))  # dimensions: x, y, z
-# franka_moveit.add_box("bottom_wall", bottom_wall, size=(1.2, 1, 0.01))  # dimensions: x, y, z
+franka_moveit.add_box("back_wall", back_wall, size=(0.01, 1, 1.1))  # dimensions: x, y, z
+franka_moveit.add_box("bottom_wall", bottom_wall, size=(1.2, 1, 0.01))  # dimensions: x, y, z
 
 # Wait for the scene to update
 time.sleep(2)
@@ -125,7 +134,7 @@ else:
     pose_goal = franka_moveit.get_moveit_pose_given_frankapy_pose(pose_goal)
 
     # plan a straight line motion to the goal
-    joints = franka_moveit.get_plan_given_pose(pose_goal)
+    joints = franka_moveit.get_straight_plan_given_pose(pose_goal)
     print(joints)
     # print(plan)
 
