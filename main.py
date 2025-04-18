@@ -23,6 +23,8 @@ def main():
     franka_moveit = MoveItPlanner()
     fa = FrankaArm(init_node=False)
 
+    franka_moveit.fa.open_gripper()
+
     gripper_frame = RigidTransform(from_frame='franka_tool', to_frame='franka_tool_base') # TODO get transform to bottle and define it as tool frame
     gripper_frame.translation = [0, 0, 0.0762] # [0.3261, 0.012, 0.3447]
     gripper_frame.rotation = np.eye(3)
@@ -30,16 +32,15 @@ def main():
     scale = WeighingScale()
 
     # TODO: uncomment as we go along
-    # translation = fa.get_pose().translation
-    # translation += np.array([0.2, 0, 0.2])
-    # utils.pickup(fa, translation[0], translation[1], translation[2])
-    # target_weight, current_weight = utils.get_weights(scale)
-    # X, U, success, t_vec, dt = solve_bead_pour(start_mass=current_weight, end_mass=target_weight, verbose=True)
+    target_weight, current_weight = utils.get_weights(scale)
 
-    # if not success: 
-    #     raise Exception("No Feasible trajectory found")
+    print("Planning pour trajectory...")
+    Xm, Um, success, t_vec, dt = solve_bead_pour(start_mass=current_weight, end_mass=target_weight, verbose=True)
+    # read an np file from X.npy and U.npy
 
-    # # TODO: cup needs to be elevated to begin with to properly pick up
+    if not success: 
+        raise Exception("No Feasible trajectory found")
+
     utils.add_collision_boxes(franka_moveit)
     utils.move_to_pre_pickup_location(franka_moveit)
 
@@ -49,7 +50,28 @@ def main():
     print(f"X: {X}, Y: {Y}, Z: {Z}")
     input("Press Enter to continue...")
     utils.pickup(fa, X, Y, Z)
-    # utils.pour_beads(fa, Xm=X, Um=U, t_vec=t_vec, scale=scale, at_pre_pour=False, dt=dt, verbose=False)
+
+    franka_moveit.fa.goto_gripper(0.002, grasp=True, force=25)
+
+    # move to z + 0.1
+    current_pose = fa.get_pose()
+    current_pose.translation[2] += 0.2
+    fa.goto_pose(current_pose, duration=3)
+
+    initial_pitch = 0.25 
+    default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+    additional_rotation = np.array([[np.cos(initial_pitch), 0, np.sin(initial_pitch)], [0, 1, 0], [-np.sin(initial_pitch), 0, np.cos(initial_pitch)]])
+    default_rotation = default_rotation @ additional_rotation
+    pitch = initial_pitch
+
+    # move to x, y, and z directly above the cup
+    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
+    pre_pour_pose.translation = [0.45, 0.012, 0.350] # [0.3261, 0.012, 0.3447]
+    pre_pour_pose.rotation = default_rotation
+
+    fa.goto_pose(pre_pour_pose, duration=15)
+    print('Moved to pre-pour pose')
+    utils.pour_beads(fa, Xm=Xm, Um=Um, t_vec=t_vec, scale=scale, at_pre_pour=False, dt=dt, verbose=False)
 
     # final_weight = scale.weight_averaged()
     # print(f"Error = {target_weight - final_weight} g")
