@@ -30,6 +30,7 @@ def pour_beads(fa, Xm, Um, t_vec, scale, at_pre_pour = False, dt=0.05, verbose=T
     Kd = 0.0001
     Ki = 0.01 
     U_actual = np.zeros(len(Um))
+    X_actual = np.zeros(len(Xm))
     cup_edge_frame = RigidTransform(from_frame='franka_tool', to_frame='franka_tool_base')
     cup_edge_frame.translation = [0.09, 0, 0.11]
     cup_edge_frame.rotation = np.eye(3)
@@ -66,11 +67,13 @@ def pour_beads(fa, Xm, Um, t_vec, scale, at_pre_pour = False, dt=0.05, verbose=T
 
     for i in range(len(Um)):
         current_weight = scale.read_weight()
-
+        
         if current_weight == -1:
             current_weight = prev_weight
         else:
             prev_weight = current_weight
+
+        X_actual[i] = current_weight
 
         e = current_weight - Xm[i + 1][0]
         e_dot = (e - prev_e) / dt
@@ -101,20 +104,32 @@ def pour_beads(fa, Xm, Um, t_vec, scale, at_pre_pour = False, dt=0.05, verbose=T
         rate.sleep()
 
         prev_e = e
-
-
+    
+    X_actual[-1] = scale.read_weight()
     
     print('Finished pouring')
-    if verbose:
-        plt.figure()
-        plt.plot(t_vec[:-1], U_actual, label="Actual Controls")
-        plt.plot(t_vec[:-1], Um, label="Nominal Controls")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Pitch (rad)")
-        plt.ylim((-0.5, 0.3))
-        plt.title("Actual and Nominal Controls")
-        plt.legend()
-        plt.show()
+    # if verbose:
+    plt.figure()
+    plt.plot(t_vec[:-1], U_actual, label="Actual Controls")
+    plt.plot(t_vec[:-1], Um, label="Nominal Controls")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Pitch (rad)")
+    plt.ylim((-0.5, 0.3))
+    plt.title("Actual and Nominal Controls")
+    plt.legend()
+    plt.show()
+    plt.savefig('actual_nominal_controls.png')
+    plt.figure()
+    plt.plot(t_vec[:], Xm[:], label="Reference State")
+    plt.plot(t_vec[:], X_actual[:], label="Actual State")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Weight of beads (grams)")
+    # plt.ylim((-0.5, 0.3))
+    plt.title("Actual and Reference State")
+    plt.legend()
+    plt.show()
+    plt.savefig('actual_reference_state.png')
+
     #except Exception as e:  
         # print(f'Error: {e}')
     #finally:
@@ -138,6 +153,7 @@ def pour_beads(fa, Xm, Um, t_vec, scale, at_pre_pour = False, dt=0.05, verbose=T
 def get_weights(scale):
     print("Place target weight object on scale...")
     target_weight = scale.read_weight_on_key()
+    # target_weight = 60.0
     print(f"Target weight: {target_weight} grams")
     print("Place cup/bowl to catch beads on scale...")
     current_weight = scale.read_weight_on_key()
