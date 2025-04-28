@@ -53,25 +53,29 @@ def main():
 
     franka_moveit.fa.goto_gripper(0.002, grasp=True, force=25)
 
-    # move to z + 0.1
-    current_pose = fa.get_pose()
-    current_pose.translation[2] += 0.2
-    fa.goto_pose(current_pose, duration=3)
+    utils.move_to_pre_prepose(fa)
 
-    initial_pitch = 0.25 
-    default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
-    additional_rotation = np.array([[np.cos(initial_pitch), 0, np.sin(initial_pitch)], [0, 1, 0], [-np.sin(initial_pitch), 0, np.cos(initial_pitch)]])
-    default_rotation = default_rotation @ additional_rotation
-    pitch = initial_pitch
-
-    # move to x, y, and z directly above the cup
-    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
-    pre_pour_pose.translation = [0.45, 0.012, 0.350] # [0.3261, 0.012, 0.3447]
-    pre_pour_pose.rotation = default_rotation
-
-    fa.goto_pose(pre_pour_pose, duration=15)
     print('Moved to pre-pour pose')
     utils.pour_beads(fa, Xm=Xm, Um=Um, t_vec=t_vec, scale=scale, at_pre_pour=False, dt=dt, verbose=False)
+
+    fa.set_tool_delta_pose(gripper_frame)
+    utils.pickup(fa, X, Y, Z + 0.1, duration=9)
+
+    # go down 10cm
+    current_pose = fa.get_pose()
+    current_pose.translation[2] -= 0.1
+    fa.goto_pose(current_pose)
+
+    #Open the gripper
+    franka_moveit.fa.open_gripper()
+
+    # go down 10cm
+    current_pose = fa.get_pose()
+    current_pose.translation[2] += 0.15
+    fa.goto_pose(current_pose)
+
+    fa.reset_joints()
+
 
     # final_weight = scale.weight_averaged()
     # print(f"Error = {target_weight - final_weight} g")

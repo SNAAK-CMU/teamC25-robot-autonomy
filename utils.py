@@ -14,6 +14,7 @@ from franka_interface_msgs.msg import SensorDataGroup
 import cv2
 import os
 import yaml
+
 import tf.transformations as tft
 import geometry_msgs.msg
 from src.devel_packages.manipulation.src.moveit_class import MoveItPlanner
@@ -153,30 +154,25 @@ def pour_beads(fa, Xm, Um, t_vec, scale, at_pre_pour = False, dt=0.05, verbose=T
 def get_weights(scale):
     print("Place target weight object on scale...")
     target_weight = scale.read_weight_on_key()
-    # target_weight = 60.0
+    #target_weight = 50.0
     print(f"Target weight: {target_weight} grams")
     print("Place cup/bowl to catch beads on scale...")
     current_weight = scale.read_weight_on_key()
     return target_weight, current_weight
 
 def get_pickup_pixels(img, verbose=False):
-    # --- Mask everything except the ROI ---
     mask = np.zeros(img.shape[:2], dtype=np.uint8)  # Black mask same size as image
 
-    # 🔧 Define your rectangle here (x1, y1, x2, y2)
     x1, y1 = 350, 90  # Top-left corner
     x2, y2 = 700, 340  # Bottom-right corner
 
-    # Fill the ROI with white (allowed area)
     mask[y1:y2, x1:x2] = 255
 
-    # Apply the mask to the image
     img = cv2.bitwise_and(img, img, mask=mask)
     if verbose:
         cv2.imshow("Masked Image", img)
         cv2.waitKey(0)
 
-    # --- Preprocess the masked image ---
     img = cv2.GaussianBlur(img, (5, 5), 0)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
@@ -366,7 +362,7 @@ def move_to_pre_pour_location(franka_moveit):
 
     franka_moveit.fa.wait_for_skill()
 
-def pickup(fa, X, Y, Z):
+def pickup(fa, X, Y, Z, duration=6):
     default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
     initial_pitch = np.pi / 2
     additional_rotation = np.array([[np.cos(initial_pitch), 0, np.sin(initial_pitch)], [0, 1, 0], [-np.sin(initial_pitch), 0, np.cos(initial_pitch)]])
@@ -375,7 +371,7 @@ def pickup(fa, X, Y, Z):
     pickup_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
     pickup_pose.translation = [X - 0.1, Y, Z]
     pickup_pose.rotation = default_rotation@additional_rotation
-    fa.goto_pose(pickup_pose, duration=6)
+    fa.goto_pose(pickup_pose, duration=duration)
 
     # move to pickup
     pickup_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
@@ -383,6 +379,27 @@ def pickup(fa, X, Y, Z):
     pickup_pose.rotation = default_rotation@additional_rotation
     fa.goto_pose(pickup_pose, duration=6)
     print('Moved to pickup pose')
+
+
+
+def move_to_pre_prepose(fa):
+    # move to z + 0.1
+    current_pose = fa.get_pose()
+    current_pose.translation[2] += 0.2
+    fa.goto_pose(current_pose, duration=3)
+
+    initial_pitch = 0.25 
+    default_rotation = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+    additional_rotation = np.array([[np.cos(initial_pitch), 0, np.sin(initial_pitch)], [0, 1, 0], [-np.sin(initial_pitch), 0, np.cos(initial_pitch)]])
+    default_rotation = default_rotation @ additional_rotation
+    pitch = initial_pitch
+
+    # move to x, y, and z directly above the cup
+    pre_pour_pose = RigidTransform(from_frame='franka_tool', to_frame='world')
+    pre_pour_pose.translation = [0.45, 0.012, 0.350] # [0.3261, 0.012, 0.3447]
+    pre_pour_pose.rotation = default_rotation
+
+    fa.goto_pose(pre_pour_pose, duration=15)
 
 if __name__ == "__main__":
     rotation = np.array([0.01804096127439402, -0.006587662398836236, -0.6969376828282071, 0.7168744608887])
