@@ -4,7 +4,7 @@
 [Report Link](https://drive.google.com/file/d/1pgp-c3Z5qVecwIIcbcmdoBHYkJPaO3JG/view?usp=sharing)
 
 ### Demonstration Video:
-
+[Video](https://drive.google.com/file/d/1AO35xT9SAFWQ5qzlmW-o09ssS_QAiykP/view?usp=sharing)
 
 ### To Execute Code:
 - Follow instructions on starting FrankaPy and Franka-Interface
